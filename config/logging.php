@@ -52,6 +52,13 @@ return [
     */
 
     'channels' => [
+        'amocrm' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'with' => [
+                'stream' => storage_path('logs/amocrm.log'),
+            ],
+        ],
         'stack' => [
             'driver' => 'stack',
             'channels' => ['single'],
