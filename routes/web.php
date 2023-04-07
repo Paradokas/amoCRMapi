@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AmoCRM\InfoController;
+use App\Services\AmoCRMService;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,4 +17,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
+
+Route::get('/auth', [AmoCRMService::class, 'auth'])->name('auth');
+Route::get('/info', [InfoController::class, 'index'])->name('info');
