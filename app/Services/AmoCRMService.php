@@ -15,16 +15,24 @@ use Ufee\Amo\Oauthapi;
 class AmoCRMService extends Controller
 {
     /**
-     * @var Oauthapi Объект для работы с API AmoCRM
+     * @var Oauthapi Экземпляр API клиента АМО CRM.
      */
     private Oauthapi $api;
 
     /**
-     * Создает новый экземпляр сервиса
+     * @var FileStorage Экземпляр хранилища данных OAuth.
      */
-    public function __construct()
+    private FileStorage $fileStorage;
+
+    /**
+     * Создает новый экземпляр сервиса.
+     * @param Oauthapi $api Экземпляр API клиента АМО CRM.
+     * @param FileStorage $fileStorage Экземпляр хранилища данных OAuth.
+     */
+    public function __construct(Oauthapi $api, FileStorage $fileStorage)
     {
-        $this->api = app('AmoCRM');
+        $this->api = $api;
+        $this->fileStorage = $fileStorage;
     }
 
     /**
@@ -35,25 +43,71 @@ class AmoCRMService extends Controller
      */
     public function auth(Request $request): RedirectResponse
     {
-        if ($request->input('code')) {
-            try {
-
-                $directory = storage_path('app/amocrm/' . $this->api->getAuth('domain'));
-                if (!is_dir($directory)) {
-                    File::makeDirectory($directory, 0755, true, true);
-                }
-
-                $oauth = $this->api->fetchAccessToken($request->input('code'));
-                (new FileStorage(['path' => storage_path('app/amocrm')]))->setOauthData($this->api, $oauth);
-                return redirect()->route('home')->with('status', 'Token saved');
-            } catch (Exception $e) {
-                Log::error('Error fetching token: ' . $e->getMessage());
-                return redirect()->back()->with('error', 'Error fetching access token');
+        try {
+            if ($request->has('code')) {
+                return $this->handleOauthCallback($request);
             }
-        }
-        $first_auth_url = $this->api->getOauthUrl(['mode' => 'popup', 'state' => 'amoapi']);
 
-        return redirect($first_auth_url);
+            return $this->redirectToOauthProvider();
+        } catch (Exception $e) {
+            Log::error('Ошибка при извлечении токена: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Ошибка при извлечении токена');
+        }
+    }
+
+    /**
+     * Обработка OAuth-колбэка.
+     *
+     * @param Request $request Объект запроса.
+     * @return RedirectResponse Ответ с редиректом на главную страницу.
+     * @throws Exception
+     */
+    private function handleOauthCallback(Request $request): RedirectResponse
+    {
+        $oauth = $this->api->fetchAccessToken($request->input('code'));
+        $directory = $this->prepareStorageDirectory();
+        $this->storeOauthData($oauth, $directory);
+
+        return redirect()->route('home')->with('status', 'Токен сохранен');
+    }
+
+    /**
+     * Редирект на страницу авторизации.
+     *
+     * @return RedirectResponse Ответ с редиректом на страницу авторизации.
+     */
+    private function redirectToOauthProvider(): RedirectResponse
+    {
+        $firstAuthUrl = $this->api->getOauthUrl(['mode' => 'popup', 'state' => 'amoapi']);
+
+        return redirect($firstAuthUrl);
+    }
+
+    /**
+     * Подготовка директории для хранения данных OAuth.
+     *
+     * @return string Путь к директории.
+     */
+    public function prepareStorageDirectory(): string
+    {
+        $directory = storage_path(config('amocrm.path') . $this->api->getAuth('domain'));
+        if (!is_dir($directory)) {
+            File::makeDirectory($directory, 0755, true, true);
+        }
+
+        return $directory;
+    }
+
+    /**
+     * Сохранение данных OAuth.
+     *
+     * @param array $oauth Данные OAuth.
+     * @param string $directory Путь к директории для сохранения данных.
+     * @throws Exception
+     */
+    private function storeOauthData(array $oauth, string $directory): void
+    {
+        $this->fileStorage->setOauthData($this->api, $oauth);
     }
 
     /**
@@ -65,7 +119,7 @@ class AmoCRMService extends Controller
     public function init(): ApiClient
     {
         $oauth = $this->api->refreshAccessToken();
-        (new FileStorage(['path' => storage_path('app/amocrm')]))->setOauthData($this->api, $oauth);
+        $this->fileStorage->setOauthData($this->api, $oauth);
 
         return $this->api;
     }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Ufee\Amo\Base\Storage\Oauth\FileStorage;
 use Ufee\Amo\Oauthapi;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton('AmoCRM', function () {
+        $this->app->singleton(Oauthapi::class, function () {
             return Oauthapi::setInstance([
                 'domain' => config('amocrm.domain'),
                 'client_id' => config('amocrm.client_id'),
@@ -22,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
                 'timezone' => 'Europe/Moscow',
                 'lang' => 'ru'
             ]);
+        });
+
+        $this->app->singleton(FileStorage::class, function ($app) {
+            return new FileStorage(['path' => storage_path(config('amocrm.path'))]);
         });
     }
 

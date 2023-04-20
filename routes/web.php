@@ -19,5 +19,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::get('/auth', [AmoCRMService::class, 'auth'])->middleware('amocrm.logger')->name('auth');
-Route::get('/info', [InfoController::class, 'index'])->middleware('amocrm.logger')->name('info');
+Route::middleware(['amocrm.logger'])->group(function () {
+    Route::get('/auth', [AmoCRMService::class, 'auth'])->name('auth');
+    Route::get('/info', [InfoController::class, 'index'])->name('info');
+});
